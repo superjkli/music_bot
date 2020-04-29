@@ -5,7 +5,7 @@ from discord.ext import commands
 import queue
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('.'))
 bot.remove_command('help')
-token = 'Njg0NjUwMDk1MTgxOTU1MTA0.Xl9Nyg.-tzleGbfV8flXyYo0Xa4d9BFYWg'
+token = ''
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
