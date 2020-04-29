@@ -32,8 +32,8 @@ now_playing = ""
 play_author = ""
 
 class info():
-    def __init__(self, author, url):
-        self.author = author
+    def __init__(self, context, url):
+        self.context = context
         self.url = url
 
 class yt_source(discord.PCMVolumeTransformer):
@@ -47,10 +47,10 @@ class yt_source(discord.PCMVolumeTransformer):
     async def get_url_data(cls, url, loop=None, stream=True):
         loop = loop or asyncio.get_event_loop()
         playdata = await loop.run_in_executor(None, extract_info_from_ytdl(url, stream))
-        if 'entries' in data:
-            data = data['entries'][0]
-        filename = data['url']
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+        if 'entries' in playdata:
+            playdata = playdata['entries'][0]
+        filename = playdata['url']
+        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=playdata)
 
 @bot.command()
 async def help(ctx):
@@ -65,14 +65,10 @@ async def disconnect(ctx):
 async def play(ctx, *, url):
     async with ctx.typing():
         if videoqueue.empty() && not ctx.voice_client.is_playing():
-            player = await ytsource.get_url_data(url, loop=self.bot.loop, stream=True)
-            await join(ctx)
-            ctx.voice_client.play(player)
-            ctx.send(f"""Now playing: {url}""")
-            now_playing = url
-            play_author = ctx.author
+            await start(ctx, *, url)
         elif ctx.voice_client.is_playing() && not videoqueue.full():
-            pass
+            temp = info(ctx, url)
+            videoqueue.put(temp)
         else:
             ctx.send("queue full")
 @bot.command()
@@ -97,5 +93,13 @@ async def join(ctx):
         else:
             await ctx.send("not connected to a voice channel")
             raise commands.CommandError("not connected to a voice channel")
+
+async def start(ctx, *, url):
+    player = await ytsource.get_url_data(url, loop=self.bot.loop, stream=True)
+    await join(ctx)
+    ctx.voice_client.play(player)
+    ctx.send(f"""Now playing: {url}""")
+    now_playing = url
+    play_author = ctx.author
 
 bot.run(token)
