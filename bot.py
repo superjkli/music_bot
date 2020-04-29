@@ -2,7 +2,7 @@ import discord
 import youtube_dl
 import asyncio
 from discord.ext import commands
-vc = ""
+import queue
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('.'))
 bot.remove_command('help')
 token = 'Njg0NjUwMDk1MTgxOTU1MTA0.Xl9Nyg.-tzleGbfV8flXyYo0Xa4d9BFYWg'
@@ -26,6 +26,15 @@ ffmpeg_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+
+videoqueue = queue.Queue(maxsize = 10)
+now_playing = ""
+play_author = ""
+
+class info():
+    def __init__(self, author, url):
+        self.author = author
+        self.url = url
 
 class yt_source(discord.PCMVolumeTransformer):
     def __init__(self, source, playdata, volume = 0.5):
@@ -55,17 +64,38 @@ async def disconnect(ctx):
 @bot.command()
 async def play(ctx, *, url):
     async with ctx.typing():
-        player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-        ctx.voice_client.play(player)    
-
+        if videoqueue.empty() && not ctx.voice_client.is_playing():
+            player = await ytsource.get_url_data(url, loop=self.bot.loop, stream=True)
+            await join(ctx)
+            ctx.voice_client.play(player)
+            ctx.send(f"""Now playing: {url}""")
+            now_playing = url
+            play_author = ctx.author
+        elif ctx.voice_client.is_playing() && not videoqueue.full():
+            pass
+        else:
+            ctx.send("queue full")
 @bot.command()
-async def volume(self, ctx, volume: int):
+async def volume(ctx, volume: int):
     if ctx.voice_client is None:
         return await ctx.send("Not connected to vc")
     ctx.voice_client.source.volume = volume / 100
     await ctx.send("volume change done")
 
-@play.before_invoke
-async def join():
-    pass
+@bot.command()
+async def skip(ctx):
+    if ctx.author = play_author:
+        ctx.voice_client.stop()
+    else:
+        pass
+
+
+async def join(ctx):
+    if ctx.voice_client is None:
+        if ctx.author.voice:
+            await ctx.author.voice.channel.connect()
+        else:
+            await ctx.send("not connected to a voice channel")
+            raise commands.CommandError("not connected to a voice channel")
+
 bot.run(token)
