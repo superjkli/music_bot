@@ -5,7 +5,8 @@ from discord.ext import commands
 import queue
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('.'))
 bot.remove_command('help')
-token = ''
+
+token = 'Njg0NjUwMDk1MTgxOTU1MTA0.XrJHOA.IIJ3wGKB-WjTZrlxWM4mWZVi4-U'
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -18,7 +19,8 @@ ytdl_format_options = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'source_address': '0.0.0.0'
+    'source_address': '0.0.0.0',
+    'audio_quality': '0'
 }
 
 ffmpeg_options = {
@@ -30,7 +32,7 @@ ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 videoqueue = queue.Queue(maxsize = 10)
 now_playing = ""
 play_author = ""
-
+voiceclient = None
 class info():
     def __init__(self, context, url):
         self.context = context
@@ -46,11 +48,11 @@ class yt_source(discord.PCMVolumeTransformer):
     @classmethod
     async def get_url_data(cls, url, loop=None, stream=True):
         loop = loop or asyncio.get_event_loop()
-        playdata = await loop.run_in_executor(None, extract_info_from_ytdl(url, stream))
+        playdata = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         if 'entries' in playdata:
             playdata = playdata['entries'][0]
         filename = playdata['url']
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=playdata)
+        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), playdata=playdata)
 
 @bot.command()
 async def help(ctx):
@@ -64,9 +66,10 @@ async def disconnect(ctx):
 @bot.command()
 async def play(ctx, *, url):
     async with ctx.typing():
-        if videoqueue.empty() && not ctx.voice_client.is_playing():
-            await start(ctx, *, url)
-        elif ctx.voice_client.is_playing() && not videoqueue.full():
+        await join(ctx)
+        if videoqueue.empty() and (not ctx.voice_client.is_playing()):
+            await start(ctx, url)
+        elif ctx.voice_client.is_playing() and (not videoqueue.full()):
             temp = info(ctx, url)
             videoqueue.put(temp)
         else:
@@ -80,11 +83,12 @@ async def volume(ctx, volume: int):
 
 @bot.command()
 async def skip(ctx):
-    if ctx.author = play_author:
+    if ctx.author == play_author:
         ctx.voice_client.stop()
-    else:
-        pass
 
+@bot.command(aliases=['np', 'now_playing'])
+async def nowplaying(ctx):
+    await ctx.send(f"""Now playing: {now_playing}""")
 
 async def join(ctx):
     if ctx.voice_client is None:
@@ -94,12 +98,26 @@ async def join(ctx):
             await ctx.send("not connected to a voice channel")
             raise commands.CommandError("not connected to a voice channel")
 
-async def start(ctx, *, url):
-    player = await ytsource.get_url_data(url, loop=self.bot.loop, stream=True)
-    await join(ctx)
+async def start(ctx, url):
+    player = await yt_source.get_url_data(url, loop=bot.loop, stream=True)
     ctx.voice_client.play(player)
-    ctx.send(f"""Now playing: {url}""")
+    await ctx.send(f"""Now playing: {url}""")
+    global now_playing 
+    global play_author
+    global voiceclient
     now_playing = url
     play_author = ctx.author
+    voiceclient = ctx.voice_client
 
+async def playqueue_check(): 
+    await bot.wait_until_ready()
+    
+    while not bot.is_closed():
+        if voiceclient is not None:
+            if not voiceclient.is_playing() and not videoqueue.empty():
+                videoinfo = videoqueue.get()
+                await start(videoinfo.context, videoinfo.url)
+        
+
+bot.loop.create_task(playqueue_check())
 bot.run(token)
