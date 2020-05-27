@@ -6,7 +6,7 @@ import queue
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('.'))
 bot.remove_command('help')
 
-token = 'Njg0NjUwMDk1MTgxOTU1MTA0.XrJHOA.IIJ3wGKB-WjTZrlxWM4mWZVi4-U'
+token = ''
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -51,12 +51,18 @@ class yt_source(discord.PCMVolumeTransformer):
         playdata = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         if 'entries' in playdata:
             playdata = playdata['entries'][0]
+
         filename = playdata['url']
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), playdata=playdata)
 
 @bot.command()
 async def help(ctx):
     embed=discord.Embed(title="help")
+    embed.add_field(name = "help", value = "display this help", inline = False)
+    embed.add_field(name = "play", value = "play a video on websites that youtube_dl supports or search on youtube", inline = False)
+    embed.add_field(name = "disconnect", value = "disconnect from voice", inline = False)
+    embed.add_field(name = "volume", value = "change the volume of the music played by the bot 0 - 100, default 50", inline = False)
+    embed.add_field(name = "nowplaying", value = "show what is playing now, aliases: np now_playing", inline = False)
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -83,8 +89,10 @@ async def volume(ctx, volume: int):
 
 @bot.command()
 async def skip(ctx):
-    if ctx.author == play_author:
+    if ctx.author.id == play_author_id:
         ctx.voice_client.stop()
+    else:
+        pass
 
 @bot.command(aliases=['np', 'now_playing'])
 async def nowplaying(ctx):
@@ -103,16 +111,17 @@ async def start(ctx, url):
     ctx.voice_client.play(player)
     await ctx.send(f"""Now playing: {url}""")
     global now_playing 
-    global play_author
+    global play_author_id
     global voiceclient
     now_playing = url
-    play_author = ctx.author
+    play_author_id = ctx.author.id
     voiceclient = ctx.voice_client
 
 async def playqueue_check(): 
     await bot.wait_until_ready()
     
     while not bot.is_closed():
+        await asyncio.sleep(1)
         if voiceclient is not None:
             if not voiceclient.is_playing() and not videoqueue.empty():
                 videoinfo = videoqueue.get()
