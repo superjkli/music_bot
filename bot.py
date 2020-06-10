@@ -63,8 +63,8 @@ async def help(ctx):
     embed.add_field(name = "play", value = "play a video on websites that youtube_dl supports or search on youtube", inline = False)
     embed.add_field(name = "disconnect", value = "disconnect from voice", inline = False)
     embed.add_field(name = "volume", value = "change the volume of the music played by the bot 0 - 100, default 50", inline = False)
-    embed.add_field(name = "nowplaying", value = "show what is playing now, aliases: np now_playing", inline = False)
-    embed.add_field(name = "playlist", value = "show playlist, aliases: pl playqueue", inline = False)
+    embed.add_field(name = "nowplaying", value = "show what is playing now,\n aliases: np, now_playing", inline = False)
+    embed.add_field(name = "playlist", value = "show playlist including what is playing now,\n aliases: pl, playqueue", inline = False)
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -80,8 +80,10 @@ async def play(ctx, *, url):
         elif ctx.voice_client.is_playing() and (not videoqueue.full()):
             temp = info(ctx, url)
             videoqueue.put(temp)
+            ctx.send("put into queue")
         else:
-            await tx.send("queue full")
+            await ctx.send("queue full")
+
 @bot.command()
 async def volume(ctx, volume: int):
     if ctx.voice_client is None:
@@ -103,8 +105,14 @@ async def nowplaying(ctx):
 @bot.command(aliases=['playqueue', 'pl'])
 async def playlist(ctx):
     get_pl = 1
+    embed = discord.Embed(title="playlist")
+    if voiceclient.is_playing():
+        np_temp = ytdl.extract_info(now_playing,download=False)
+        if 'entries' in np_temp:
+            np_temp = np_temp['entries'][0]
+        np_temp = np_temp['title']
+        embed.add_field(name="Now playing", inline = False, value=f"""{np_temp}: \n{now_playing}""")
     if not videoqueue.empty():
-        embed = discord.Embed(title="playlist")
         i = videoqueue.qsize()
         number = 0
         while i > 0:
@@ -114,12 +122,10 @@ async def playlist(ctx):
                 title_temp = title_temp['entries'][0]
             title_temp = title_temp['title']
             number += 1
-            embed.add_field(name=f"""{number}""", inline=False, value=f"""{title_temp}: \n {temp.url}""")
+            embed.add_field(name=f"""{number}""", inline=False, value=f"""{title_temp}: \n{temp.url}""")
             videoqueue.put(temp)
             i -= 1
-        await ctx.send(embed=embed)
-    else:
-        await ctx.send("playlist is empty")
+    await ctx.send(embed=embed)
     get_pl = 0
 
 async def join(ctx):
